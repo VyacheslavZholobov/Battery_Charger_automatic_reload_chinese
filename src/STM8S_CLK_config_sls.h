@@ -1,11 +1,7 @@
 #include "stm8s.h"
 /*
-! Не использую "stm8s_clk.h" (+1901 bytes Flash +0 bytes RAM)
-! С этими настройками тактир.(+57 bytes Flash +0 bytes RAM) */
-
-//^ В main.c в void main(void)
-//^ CLK_config();
-
+! Not using “stm8s_clk.h” (+1901 bytes Flash +0 bytes RAM)
+! With these clock settings (+57 bytes Flash +0 bytes RAM) */
 
 /**
   * @brief  Configures the HSI and CPU clock dividers.
@@ -32,10 +28,10 @@ void CLK_SYSCLKConfig(uint8_t CLK_Prescaler)
 
 void CLK_config(void)
 {
-  CLK_SYSCLKConfig((uint8_t)0x80);  // Предделитель частоты тактирования  процессора и периферии (uint8_t)0x80
+  CLK_SYSCLKConfig((uint8_t)0x80);  // Processor and peripheral clock frequency divider
   CLK_SYSCLKConfig((uint8_t)0x00);  // set 16 MHz for CPU (uint8_t)0x00
 
-  // Варианты:
+  // Variants:
   // CLK_PRESCALER_HSIDIV1   = (uint8_t)0x00, /*!< High speed internal clock prescaler: 1 */
   // CLK_PRESCALER_HSIDIV2   = (uint8_t)0x08, /*!< High speed internal clock prescaler: 2 */
   // CLK_PRESCALER_HSIDIV4   = (uint8_t)0x10, /*!< High speed internal clock prescaler: 4 */

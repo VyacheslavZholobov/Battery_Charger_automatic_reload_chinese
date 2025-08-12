@@ -3,14 +3,13 @@
 
 
 // #define PWM_MAX 999 // Maximum value for PWM
-// uint16_t PWM_TM2_CH3 = 500; // PWM value for channel 3
-#define PWM_MAX 499 // Maximum value for PWM //* чем меньше, тем больше частота ШИМ
+#define PWM_MAX 499 // Maximum value for PWM //* the smaller it is, the higher the PWM frequency
 uint16_t TIM2_Period = PWM_MAX; // Period value
-// uint16_t PWM_TM2_CH3 = 250; // PWM value for channel 3
 
-/*
-! Не использую "stm8s_tim2.h" (+2 924 bytes Flash +7 bytes RAM)
-! С этими настройками (+83 bytes Flash +6 bytes RAM) */
+/* 
+! Not using “stm8s_tim2.h” (+2 924 bytes Flash +7 bytes RAM)
+! With these settings (+83 bytes Flash +6 bytes RAM) 
+*/
 
 #define TIM2_PRESCALER_1  ((uint8_t)0x00) // Prescaler value
 // #define TIM2_PRESCALER_2  ((uint8_t)0x01) // Prescaler value
@@ -44,7 +43,7 @@ uint16_t TIM2_Period = PWM_MAX; // Period value
  void TIM2_PWM_Config(void)
 {
   /* Time base configuration */
-  // TIM2_TimeBaseInit(TIM2_PRESCALER_1, 999); //^ Вместо этого - ниже
+  // TIM2_TimeBaseInit(TIM2_PRESCALER_1, 999); //^ Instead, it's below
   /* Set the Prescaler value */
   TIM2->PSCR = (uint8_t)(TIM2_PRESCALER_1);
   /* Set the Autoreload value */
@@ -52,7 +51,7 @@ uint16_t TIM2_Period = PWM_MAX; // Period value
   TIM2->ARRL = (uint8_t)(TIM2_Period);
  
   //* PWM1 Mode configuration: Channel1
-  //  TIM2_OC1Init(TIM2_OCMODE_PWM1, TIM2_OUTPUTSTATE_ENABLE,CCR1_Val, TIM2_OCPOLARITY_HIGH); //^ Вместо этого - ниже
+  //  TIM2_OC1Init(TIM2_OCMODE_PWM1, TIM2_OUTPUTSTATE_ENABLE,CCR1_Val, TIM2_OCPOLARITY_HIGH); //^ Instead, it's below
   /* Disable the Channel 1: Reset the CCE Bit, Set the Output State , the Output Polarity */
   // TIM2->CCER1 &= (uint8_t)(~( TIM2_CCER1_CC1E | TIM2_CCER1_CC1P));
   // /* Set the Output State &  Set the Output Polarity  */
@@ -73,12 +72,12 @@ uint16_t TIM2_Period = PWM_MAX; // Period value
   // else {TIM2->CCMR1 &= (uint8_t)(~TIM2_CCMR_OCxPE);}
   //* PWM1 Mode configuration: Channel1 - END -
  
-   //* PWM1 Mode configuration: Channel2 */ аналогично каналу 1
-  //  TIM2_OC2Init(TIM2_OCMODE_PWM1, TIM2_OUTPUTSTATE_ENABLE,CCR2_Val, TIM2_OCPOLARITY_HIGH); //^ Вместо этого - ниже
-  //  TIM2_OC2PreloadConfig(ENABLE); //^ Вместо этого - ниже
+   //* PWM1 Mode configuration: Channel2 */ similar to the channel 1
+  //  TIM2_OC2Init(TIM2_OCMODE_PWM1, TIM2_OUTPUTSTATE_ENABLE,CCR2_Val, TIM2_OCPOLARITY_HIGH); //^ Instead, it's below
+  //  TIM2_OC2PreloadConfig(ENABLE); //^ Instead, it's below
  
    //* PWM1 Mode configuration: Channel3 */         
-  //  TIM2_OC3Init(TIM2_OCMODE_PWM1, TIM2_OUTPUTSTATE_ENABLE,PWM_TM2_CH3, TIM2_OCPOLARITY_HIGH); //^ Вместо этого - ниже
+  //  TIM2_OC3Init(TIM2_OCMODE_PWM1, TIM2_OUTPUTSTATE_ENABLE,PWM_TM2_CH3, TIM2_OCPOLARITY_HIGH); //^ Instead, it's below
   /* Disable the Channel 1: Reset the CCE Bit, Set the Output State , the Output Polarity */
   TIM2->CCER2 &= (uint8_t)(~( TIM2_CCER1_CC1E | TIM2_CCER1_CC1P));
   /* Set the Output State &  Set the Output Polarity  */
@@ -101,18 +100,18 @@ uint16_t TIM2_Period = PWM_MAX; // Period value
   // GPIO_Init(GPIOA, GPIO_PIN_3, GPIO_MODE_OUT_PP_HIGH_FAST); // TIM2_CH3 - PA3
   //* PWM1 Mode configuration: Channel3 - END -
 
-  //  TIM2_OC3PreloadConfig(ENABLE); //^ Вместо этого - ниже
+  //  TIM2_OC3PreloadConfig(ENABLE); //^ Instead, it's below
      /* Set or Reset the OC3PE Bit */
   TIM2->CCMR3 |= (uint8_t)TIM2_CCMR_OCxPE; // ENABLE
   // TIM2->CCMR3 &= (uint8_t)(~TIM2_CCMR_OCxPE); // DISABLE
  
-  //  TIM2_ARRPreloadConfig(ENABLE); //^ Вместо этого - ниже
+  //  TIM2_ARRPreloadConfig(ENABLE); //^ Instead, it's below
   /* Set or Reset the ARPE Bit */
   TIM2->CR1 |= (uint8_t)TIM2_CR1_ARPE; // ENABLE
   // TIM2->CR1 &= (uint8_t)(~TIM2_CR1_ARPE); // DISABLE
 
   /* TIM2 enable counter */
-  //  TIM2_Cmd(ENABLE); //^ Вместо этого - ниже
+  //  TIM2_Cmd(ENABLE); //^ Instead, it's below
   TIM2->CR1 |= (uint8_t)TIM2_CR1_CEN; // ENABLE
   // TIM2->CR1 &= (uint8_t)(~TIM2_CR1_CEN); // DISABLE
  }

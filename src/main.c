@@ -1,5 +1,5 @@
-// #define DEBUG 1 //^ Отладка - включить/выключить
-// #define RUNNING_STR 1 //^ Бегущая строка - включить/выключить
+// #define DEBUG 1 //^ Debugging - enable/disable
+// #define RUNNING_STR 1 //^ Running line - enable/disable
 #include "stm8s.h"
 #include "stm8s_conf.h"
 // #include "stm8s_it.h"    /* SDCC patch: required by SDCC for interrupts */
@@ -8,7 +8,7 @@
 #include "STM8S_CLK_config_sls.h"
 #include "STM8S_TIM4_config_sls.h"
 #ifdef RUNNING_STR 
-#include "7seg_sls_running_str.h" // C бегущей строкой
+#include "7seg_sls_running_str.h" // with  Running line
 #else
 #include "7seg_sls.h" 
 #endif
@@ -20,131 +20,128 @@
 #include "Functions.h"
 #include "NTC_sls.h"
 
-void _delay_ms(uint16_t nCount); // Обьявление функции задержки в миллисекундах
+void _delay_ms(uint16_t nCount); // Declaring the delay function in milliseconds
 
 void main(void) //! Основная функция программы
 {
-  CLK_config(); // Настройка тактирования
-  Tim4_config(); // Настройка таймера 4 и прерывания по переполнению
-  Ind_init(); // Инициализация индикатора
-  Buttons_init(); // Инициализация кнопок
-  TIM2_PWM_Config(); // Настройка ШИМ на таймере 2
-  Pin_init(); // Инициализация портов ввода-вывода
+  CLK_config(); // Clock setting
+  Tim4_config(); // Setting Timer 4 and overflow interrupts
+  Ind_init(); // Indicator initialization
+  Buttons_init(); // Button initialization
+  TIM2_PWM_Config(); // PWM setting on timer 2
+  Pin_init(); // Initializing I/O ports
   ADC_NTC = ADC_read_x(NTC_CHANNEL, 16); 
  
 
 
-while (1) //! Основной цикл программы
+while (1) //! Main program cycle
 {
-  ADC_cur = ADC_read_x(ADC_U_DC_CHANNEL, 10); //^ Напряжение блока питания
+  ADC_cur = ADC_read_x(ADC_U_DC_CHANNEL, 10); //^ Power supply voltage
   ADC_U_DC = ADC_cur / 10;
-  U_DC = ADC_U_DC * COEF_U_DC; // Преобразование в напряжение
+  U_DC = ADC_U_DC * COEF_U_DC;
 
-  ADC_cur = ADC_read_x(ADC_U_OUT_CHANNEL, 10); //^ Напряжение на аккумуляторе
-  //! Плавно усреднять НЕЛЬЗЯ, т.к. в импульсном режиме важно видеть пульсации
+  ADC_cur = ADC_read_x(ADC_U_OUT_CHANNEL, 10); //^ Battery voltage
+  //! Smooth averaging DOES NOT work, because in pulse mode it is important to see the ripples
   ADC_U_OUT = ADC_cur / 10;
-  U_Out = ADC_U_OUT * COEF_U_OUT; // Преобразование в напряжение
-  U_Out_disp = Average_int(U_Out, U_Out_disp, 4); // Усреднение АЦП
-  // if(U_Out < 500 || U_Out > U_DC+50) {Count_Wait_ON = TIME_WAIT_ON;Mode = MODE_AUTO_SELECT;} //^ Блок питания отключен (< 5.0V) или не подключен аккумулятор
-  // if( U_Out < 500) {Count_Wait_ON = TIME_WAIT_ON;Mode = MODE_AUTO_SELECT;} //^ Блок питания отключен (< 5.0V) или не подключен аккумулятор
+  U_Out = ADC_U_OUT * COEF_U_OUT;
+  U_Out_disp = Average_int(U_Out, U_Out_disp, 4);
   
-  ADC_cur = ADC_read_x(ADC_I_CHANNEL, 100); //^ Ток заряда аккумулятора
-  // ADC_I = Average_int(ADC_cur, ADC_I, 4); // Усреднение АЦП
+  ADC_cur = ADC_read_x(ADC_I_CHANNEL, 100); //^ Battery charge current
+  // ADC_I = Average_int(ADC_cur, ADC_I, 4);
   ADC_I = ADC_cur/10;
-  I_out = ADC_I * COEF_I; // Преобразование в ток
+  I_out = ADC_I * COEF_I;
 
   //************************** BUTTON **************************
   if (BT_check(BT_FNC, CLICK)) 
   {
-    Mode++; // Переключаем режим работы 
-    if (Mode >= MODE_RESET_MODE) {Mode = MODE_AUTOMOBILE_CHARGING;} // Если режим больше максимального, то переходим в первый
-    Count_Wait_ON = TIME_WAIT_ON; // Сбрасываем счетчик времени ожидания включения
+    Mode++; // Switching the operating mode
+    if (Mode >= MODE_RESET_MODE) {Mode = MODE_AUTOMOBILE_CHARGING;} // If the mode is greater than the maximum mode, we go to the first mode
+    Count_Wait_ON = TIME_WAIT_ON; // Reset the switch-on timeout counter
   }
-  // Count_Wait_ON = TIME_WAIT_ON;//!!!
   #ifndef DEBUG
   if(Count_Wait_ON != 0)
   {
-    PWM_TM2_CH3 = 0; // Выключаем ШИМ
-    Flag_ON_Out = FALSE; // Выключаем выход
-    Flag_Fan = FALSE; // Выключаем вентилятор
+    PWM_TM2_CH3 = 0; // PWM off
+    Flag_ON_Out = FALSE; // Shutting down the output
+    Flag_Fan = FALSE; // Turning off the fan
   }
-  Flag_LED_GEL = Flag_LED_MOTO = Flag_LED_PULSE = Flag_LED_CAR = 0; // Выключаем все светодиоды
-  //************************** Режим работы **************************
+  Flag_LED_GEL = Flag_LED_MOTO = Flag_LED_PULSE = Flag_LED_CAR = 0; // Turning off all the LEDs
+  //************************** operating mode **************************
   switch (Mode)
   {
-  case MODE_AUTO_SELECT: //! Автоопределение режима работы
-    // if(U_Out > U_DC+50) {Count_Wait_ON = TIME_WAIT_ON;} //^ Блок питания отключен
-    if(Count_Wait_ON == 0) //^ Заканчивается время ожидания начала работы
+  case MODE_AUTO_SELECT: //! Autodetection of the operating mode
+    // if(U_Out > U_DC+50) {Count_Wait_ON = TIME_WAIT_ON;} //^ The power supply is disconnected
+    if(Count_Wait_ON == 0) //^ The waiting time for the start of operation has expired
     {
-      if(U_Out < 1050) {Mode = MODE_CHARGE_PULSE;} //^ Если напряжение на аккумуляторе меньше 10.5V, то включим режим восстановления.
-      else {Mode = MODE_AUTOMOBILE_CHARGING;} //^ Если напряжение на аккумуляторе больше 10.5V, то включим режим автомобильной зарядки.
+      if(U_Out < 1050) {Mode = MODE_CHARGE_PULSE;} //^ If the battery voltage is less than 10.5V, we will enable the recovery mode.
+      else {Mode = MODE_AUTOMOBILE_CHARGING;} //^ If the battery voltage is greater than 10.5V, we will enable the car charging mode.
     }
-    Led_blink(&Flag_LED_CAR, 250, 250); // Функция мигания светодиода
-    Flag_LED_GEL = Flag_LED_MOTO = Flag_LED_PULSE = Flag_LED_CAR; // Мигаем все светодиоды
+    Led_blink(&Flag_LED_CAR, 250, 250); // LED flashing function
+    Flag_LED_GEL = Flag_LED_MOTO = Flag_LED_PULSE = Flag_LED_CAR; // All LEDs are flashing
     break;  
-  case MODE_AUTOMOBILE_CHARGING: //! Режим заряда как на автомобиле
-    if(Count_Wait_ON != 0) // ^ Держим паузу 10сек перед включением зарядки, мигаем нужным светодиодом
+  case MODE_AUTOMOBILE_CHARGING: //! Charge mode as on a car
+    if(Count_Wait_ON != 0) // ^ Pause for 10sec before switching on the charging, blink the desired LED
     {
-      PWM_TM2_CH3 = 0; // Выключаем ШИМ
-      Led_blink(&Flag_LED_CAR, 250, 250); // Функция мигания светодиода
+      PWM_TM2_CH3 = 0; // PWM off
+      Led_blink(&Flag_LED_CAR, 250, 250);
     }
-    else  //^ Время ожидания включения истекло - Переходим в режим заряда
+    else  //^ The power-on standby time has elapsed - Switch to charge mode
     {
-      Battery_type = BATTERY_Pb; // Устанавливаем тип аккумулятора
-      Ustavka_U = U_AUTOMOBILE_CHARGING; // Уставка напряжения: 1420 это 14.20V на дисплей выводить / 10
-      Ustavka_I = I_MAX; // Уставка тока: MAX 620 это 6.2A на дисплей выводить / 10
-      Flag_LED_CAR = 1; // Включаем 1 светодиод
-      Flag_ON_Out = TRUE; // Включаем выход
-      Charging_DC(Ustavka_U, Ustavka_I); //^ Зарядка аккумулятора постоянным током и напряжением
+      Battery_type = BATTERY_Pb; // Set the battery type
+      Ustavka_U = U_AUTOMOBILE_CHARGING; // Voltage setpoint: 1420 is 14.20V on display output / 10
+      Ustavka_I = I_MAX; // Current setpoint: MAX 620 is 6.2A on display output / 10
+      Flag_LED_CAR = 1; // Turn on 1 LED
+      Flag_ON_Out = TRUE; // Turning on the output
+      Charging_DC(Ustavka_U, Ustavka_I); //^ Charging the battery with direct current and voltage
       I_out_disp = Average_int(I_out, I_out_disp, 4);
     }
     break;
-  case MODE_CHARGE_AGM_GEL: //! Режим заряда AGM/GEL аккумулятора
-    if(Count_Wait_ON != 0) // ^ Держим паузу 10сек перед включением зарядки, мигаем нужным светодиодом
+  case MODE_CHARGE_AGM_GEL: //! AGM/GEL battery charging mode
+    if(Count_Wait_ON != 0) // ^ Pause for 10sec before switching on the charging, blink the desired LED
     {
-      PWM_TM2_CH3 = 0; // Выключаем ШИМ
-      Led_blink(&Flag_LED_GEL, 250, 250); // Функция мигания светодиода
+      PWM_TM2_CH3 = 0; // PWM off
+      Led_blink(&Flag_LED_GEL, 250, 250); // LED flashing function
     }
-    else  //^ Время ожидания включения истекло - Переходим в режим заряда
+    else  //^ The power-on standby time has elapsed - Switch to charge mode
     {
-      Battery_type = BATTERY_AGM_GEL; // Устанавливаем тип аккумулятора
-      Ustavka_U = U_AGM_GEL; // Уставка напряжения: 1420 это 14.20V на дисплей выводить / 10
-      Ustavka_I = I_MAX; // Уставка тока: MAX 620 это 6.2A на дисплей выводить / 10
-      Flag_LED_GEL = 1; // Включаем 2 светодиод
-      Flag_ON_Out = TRUE; // Включаем выход
-      Charging_DC(Ustavka_U, Ustavka_I); //^ Зарядка аккумулятора постоянным током и напряжением
+      Battery_type = BATTERY_AGM_GEL; // Set the battery type
+      Ustavka_U = U_AGM_GEL; // Voltage setpoint: 1380 is 13.80V on display output / 10
+      Ustavka_I = I_MAX; // Current setpoint: MAX 620 is 6.2A on display output / 10
+      Flag_LED_GEL = 1; // Turn on 2 LED
+      Flag_ON_Out = TRUE; // Turning on the output
+      Charging_DC(Ustavka_U, Ustavka_I); //^ Charging the battery with direct current and voltage
       I_out_disp = Average_int(I_out, I_out_disp, 4);
     }
     break;
-  case MODE_CHARGE_MOTO: //! Этот режим буду использовать для "ПРОЖАРКИ" убитых аккумов, без перехода в режим хранения
-    if(Count_Wait_ON != 0) // ^ Держим паузу 10сек перед включением зарядки, мигаем нужным светодиодом
+  case MODE_CHARGE_MOTO: //! I will use this mode to “fry” dead batteries, without switching to storage mode
+    if(Count_Wait_ON != 0) // ^ Pause for 10sec before switching on the charging, blink the desired LED
     {
-      PWM_TM2_CH3 = 0; // Выключаем ШИМ
-      Led_blink(&Flag_LED_MOTO, 250, 250); // Функция мигания светодиода
+      PWM_TM2_CH3 = 0; // PWM off
+      Led_blink(&Flag_LED_MOTO, 250, 250); // LED flashing function
     }
-    else  //^ Время ожидания включения истекло - Переходим в режим заряда
+    else  //^ The power-on standby time has elapsed - Switch to charge mode
     {
-      Battery_type = BATTERY_MOTO; // Устанавливаем тип аккумулятора
-      Ustavka_U = U_MOTO; // Уставка напряжения: 1420 это 14.20V на дисплей выводить / 10
-      Ustavka_I = I_MAX; // Уставка тока: MAX 620 это 6.2A на дисплей выводить / 10
-      Flag_LED_MOTO = 1; // Включаем 3 светодиод
-      Flag_ON_Out = TRUE; // Включаем выход
-      Charging_DC(Ustavka_U, Ustavka_I); //^ Зарядка аккумулятора постоянным током и напряжением
+      Battery_type = BATTERY_MOTO; // Set the battery type
+      Ustavka_U = U_MOTO; // Voltage setpoint: 1600 is 16.00V on display output / 10
+      Ustavka_I = I_MAX; // Current setpoint: MAX 620 is 6.2A on display output / 10
+      Flag_LED_MOTO = 1; // Turn on 3 LED
+      Flag_ON_Out = TRUE; // Turning on the output
+      Charging_DC(Ustavka_U, Ustavka_I); //^ Charging the battery with direct current and voltage
       I_out_disp = Average_int(I_out, I_out_disp, 4);
     }
     break;
-  case MODE_CHARGE_PULSE: //! Режим заряда пульсацией
-    if(Count_Wait_ON != 0) // ^ Держим паузу 10сек перед включением зарядки, мигаем нужным светодиодом
+  case MODE_CHARGE_PULSE: //! Pulse charge mode
+    if(Count_Wait_ON != 0) // ^ Pause for 10sec before switching on the charging, blink the desired LED
     {
-      PWM_TM2_CH3 = 0; // Выключаем ШИМ
-      Led_blink(&Flag_LED_PULSE, 250, 250); // Функция мигания светодиода
+      PWM_TM2_CH3 = 0; // PWM off
+      Led_blink(&Flag_LED_PULSE, 250, 250);
     }
-    else  //^ Время ожидания включения истекло - Переходим в режим заряда
+    else  //^ The power-on standby time has elapsed - Switch to charge mode
     {
-      Battery_type = BATTERY_Pb; // Устанавливаем тип аккумулятора
-      Ustavka_U = U_PULSE; // Уставка напряжения: 1420 это 14.20V на дисплей выводить / 10
-      Ustavka_I = I_MAX; // Уставка тока: MAX 620 это 6.2A на дисплей выводить / 10
-      Flag_LED_PULSE = 1; // Включаем 4 светодиод
+      Battery_type = BATTERY_Pb; // Set the battery type
+      Ustavka_U = U_PULSE; // Voltage setpoint: 1550 is 15.50V on display output / 10
+      Ustavka_I = I_MAX; // Current setpoint: MAX 620 is 6.2A on display output / 10
+      Flag_LED_PULSE = 1; // Turn on 4 LED
       
       if(Count_Blink < 10) 
       {
@@ -153,99 +150,70 @@ while (1) //! Основной цикл программы
       else if(Count_Blink < 500) 
       {
         Flag_ON_Out = TRUE;
-        Charging_DC(Ustavka_U, Ustavka_I);
-        I_out_disp = Average_int(I_out, I_out_disp, 4); // Усреднение тока
-      } //^ Зарядка аккумулятора постоянным током и напряжением}
-      else if(Count_Blink < 1000) {Flag_ON_Out = FALSE;} //^ Выключаем выход
-      else {Count_Blink = 0;} // Сбрасываем счетчик мигания
-      Mode = MODE_CHARGE_PULSE; //^ Чтоб автоматически не выходить с этого режима 
+        Charging_DC(Ustavka_U, Ustavka_I); //^ Charging the battery with direct current and voltage
+        I_out_disp = Average_int(I_out, I_out_disp, 4);
+      } 
+      else if(Count_Blink < 1000) {Flag_ON_Out = FALSE;} //^ Shutting down the output
+      else {Count_Blink = 0;} // Resetting the flashing counter
+      Mode = MODE_CHARGE_PULSE; //^ So that you don't automatically exit this mode 
     }
     break;
-  case MODE_SAFE_KEEPING: //! Режим хранения
-    PWM_TM2_CH3 = 0; // Выключаем ШИМ
-    Flag_ON_Out = FALSE; // Выключаем выход
-    Flag_Fan = FALSE; // Выключаем вентилятор
-    // Led_blink(&Flag_LED_CAR, 50, 5000); // Функция мигания светодиода
-    // Flag_LED_GEL = Flag_LED_MOTO = Flag_LED_PULSE = Flag_LED_CAR; // Мигаем все светодиоды
-    if(U_Out < U_RECHARGING) //^ Если напряжение на аккумуляторе меньше 12.20V
+  case MODE_SAFE_KEEPING: //! Storage mode
+    PWM_TM2_CH3 = 0; // PWM off
+    Flag_ON_Out = FALSE; // Shutting down the output
+    Flag_Fan = FALSE; // Turning off the fan
+
+    if(U_Out < U_RECHARGING) //^ If the battery voltage is less than 12.20V
     {
-      _delay_ms(1000); // Ждем 1 сек
-      if(Battery_type == BATTERY_Pb) {Mode = MODE_AUTOMOBILE_CHARGING;} // Переходим в режим заряда свинцового аккумулятора
-      else if(Battery_type == BATTERY_AGM_GEL) {Mode = MODE_CHARGE_AGM_GEL;} // Переходим в режим заряда AGM/GEL аккумулятора
-      else {Mode = MODE_AUTOMOBILE_CHARGING;} // Переходим в режим заряда свинцового аккумулятора
+      _delay_ms(1000);
+      if(Battery_type == BATTERY_Pb) {Mode = MODE_AUTOMOBILE_CHARGING;}
+      else if(Battery_type == BATTERY_AGM_GEL) {Mode = MODE_CHARGE_AGM_GEL;}
+      else {Mode = MODE_AUTOMOBILE_CHARGING;}
     } 
     break;
-  default: Mode = 0; // Если режим больше максимального, то переходим в первый
+  default: Mode = 0; // If the mode is greater than the maximum mode, we go to the first mode
     break;
   }
-  #else 
-  // if(Count_Blink < 1000)
-  // {
-  //   Flag_ON_Out = 1; // Включаем выход
-  //   Flag_LED_CAR = 1; // Включаем 1 светодиод
-  //   Flag_LED_GEL = 1; // Включаем 2 светодиод
-  //   Flag_LED_MOTO = 1; // Включаем 3 светодиод
-  //   Flag_LED_PULSE = 1; // Включаем 4 светодиод
-  //   Flag_Fan = 1; // Включаем вентилятор
-  // }
-  // else if(Count_Blink < 2000)
-  // {
-  //   Flag_ON_Out = 0; // Выключаем выход
-  //   Flag_LED_CAR = 0; // Выключаем 1 светодиод
-  //   Flag_LED_GEL = 0; // Выключаем 2 светодиод
-  //   Flag_LED_MOTO = 0; // Выключаем 3 светодиод
-  //   Flag_LED_PULSE = 0; // Выключаем 4 светодиод
-  //   Flag_Fan = 0; // Выключаем вентилятор
-  // }
-  // else {Count_Blink = 0;} // Сбрасываем счетчик мигания
-  Led_blink(&Flag_LED_CAR, 250, 250); // Функция мигания светодиода
-  // if(Count_Blink < 250) {Flag_LED_CAR = 1;} // Включаем выход
-  // else if(Count_Blink < 500) {Flag_LED_CAR = 0;} // Выключаем выход
-  // else {Count_Blink = 0;} // Сбрасываем счетчик мигания
-  PWM_TM2_CH3 = PWM_MAX / 2;
   #endif // DEBUG
-  //************************** PWM на таймере 2 **************************
-  PWM_set_TIM2_CH3(PWM_TM2_CH3); // Установка ШИМ на таймере 2
+  //************************** PWM on timer 2 **************************
+  PWM_set_TIM2_CH3(PWM_TM2_CH3); // Setting PWM on timer 2
 
-  //************************** Упр. пинами **************************
-  if(Flag_ON_Out) {GPIO_WriteHigh(ON_OUT_PORT, ON_OUT_PIN);} // Включаем выход
-  else {GPIO_WriteLow(ON_OUT_PORT, ON_OUT_PIN);} // Выключаем выход
-  if(Flag_Fan) {GPIO_WriteHigh(FAN_PORT, FAN_PIN);} // Включаем вентилятор
-  else {GPIO_WriteLow(FAN_PORT, FAN_PIN);} // Выключаем вентилятор
-  if(Flag_LED_CAR) {GPIO_WriteHigh(LED_CAR_PORT, LED_CAR_PIN);} // Включаем 1 светодиод
-  else {GPIO_WriteLow(LED_CAR_PORT, LED_CAR_PIN);} // Выключаем 1 светодиод
-  if(Flag_LED_GEL) {GPIO_WriteHigh(LED_GEL_PORT, LED_GEL_PIN);} // Включаем 2 светодиод
-  else {GPIO_WriteLow(LED_GEL_PORT, LED_GEL_PIN);} // Выключаем 2 светодиод
-  if(Flag_LED_MOTO) {GPIO_WriteHigh(LED_MOTO_PORT, LED_MOTO_PIN);} // Включаем 3 светодиод
-  else {GPIO_WriteLow(LED_MOTO_PORT, LED_MOTO_PIN);} // Выключаем 3 светодиод
-  if(Flag_LED_PULSE) {GPIO_WriteHigh(LED_PULSE_PORT, LED_PULSE_PIN);} // Включаем 4 светодиод
-  else {GPIO_WriteLow(LED_PULSE_PORT, LED_PULSE_PIN);} // Выключаем 4 светодиод
+  //************************** Pin control **************************
+  if(Flag_ON_Out) {GPIO_WriteHigh(ON_OUT_PORT, ON_OUT_PIN);} // Turn on exit
+  else {GPIO_WriteLow(ON_OUT_PORT, ON_OUT_PIN);} // Turn off exit
+  if(Flag_Fan) {GPIO_WriteHigh(FAN_PORT, FAN_PIN);} // Turn on fan
+  else {GPIO_WriteLow(FAN_PORT, FAN_PIN);} // Turn off fan
+  if(Flag_LED_CAR) {GPIO_WriteHigh(LED_CAR_PORT, LED_CAR_PIN);} // Turn on 1 LEDs
+  else {GPIO_WriteLow(LED_CAR_PORT, LED_CAR_PIN);} // Turn off 1 LEDs
+  if(Flag_LED_GEL) {GPIO_WriteHigh(LED_GEL_PORT, LED_GEL_PIN);} // Turn on 2 LEDs
+  else {GPIO_WriteLow(LED_GEL_PORT, LED_GEL_PIN);} // Turn off 2 LEDs
+  if(Flag_LED_MOTO) {GPIO_WriteHigh(LED_MOTO_PORT, LED_MOTO_PIN);} // Turn on 3 LEDs
+  else {GPIO_WriteLow(LED_MOTO_PORT, LED_MOTO_PIN);} // Turn off 3 LEDs
+  if(Flag_LED_PULSE) {GPIO_WriteHigh(LED_PULSE_PORT, LED_PULSE_PIN);} // Turn on 4 LEDs
+  else {GPIO_WriteLow(LED_PULSE_PORT, LED_PULSE_PIN);} // Turn off 4 LEDs
   //************************** Display **************************
   if(Time_ind_out == 0) 
   {
-    //^ Температура NTC
+    //^ NTC temperature
     ADC_cur = ADC_read_x(NTC_CHANNEL, 16); 
-    ADC_NTC = Average_int(ADC_cur, ADC_NTC, 6); // Усреднение АЦП
-    Temp = calc_temperature(ADC_NTC, table_arduino_10k_3950_Ra10,sizeof(table_arduino_10k_3950_Ra10), -400, 1500, 50); // Преобразование в температуру
+    ADC_NTC = Average_int(ADC_cur, ADC_NTC, 6);
+    Temp = calc_temperature(ADC_NTC, table_arduino_10k_3950_Ra10,sizeof(table_arduino_10k_3950_Ra10), -400, 1500, 50);
 
-    Display(); //^ Выводим на индикатор
+    Display(); //^ Displayed on the indicator
     Time_ind_out = T_IND_OUT;
-
-    // WWDG->CR = WWDG_CR_WDGA; /* Activate WWDG, with clearing T6 */
   }
-  _delay_ms(1); // Задержка 1ms
-} //& -end- while (1) //! Основной цикл программы
-} //& -end- void main(void) //! Основная функция программы
+  _delay_ms(1);
+} //& -end- while (1)
+} //& -end- void main(void)
 
-//* Функция задержки в миллисекундах
-//* если считать count_ms в прерывании каждую миллисекунду
+//* Delay function in milliseconds
+//* if you count the count_ms in the interrupt every millisecond.
 void _delay_ms(uint16_t nCount)
 {
-  // uint16_t count_ms = 0; // for _delay_ms() - обьявить глобально 
   count_ms = nCount;
   while (count_ms != 0)
   {
-    // Это кинуть в прерывание: if(count_ms) count_ms--; // Для delay_ms
+    // This is to throw into the interrupt: if(count_ms) count_ms--;
   }
 }
 
